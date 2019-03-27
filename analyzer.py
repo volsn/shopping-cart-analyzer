@@ -1,10 +1,9 @@
-import numpy as np
 import pandas
 
 
 class CartAnalyser:
     
-    def __init__(self, path):
+    def __init__(self, path='dataset.csv'):
         self.data = pandas.read_csv(path, header=None)
         
     def recomendations_for_product(self, product, quantity=-1):
@@ -12,21 +11,46 @@ class CartAnalyser:
         :product: string
         
         """
-        baskets = self._divide_carts(self.data)
+        baskets = self._divide_carts()
         items = self._extract_items(baskets)
         products, percentage = self._count_items(baskets, items, min_percent=0.4)
         baskets_with_products = self._search_items(baskets, product)
         recomendations, percentage = self._count_items(pork, items, min_percent=0.1)
-        
-        return recomendations
-        
+
+        if quantity == -1:
+            return recomendations
+        else:
+            return recomendations[0:quantity - 1]
+
+    def recomendation_for_cart (self, cart):
+
+        recomendation = {}
+
+        for product in cart:
+            rec_for_product = self.recomendations_for_product(product)
+
+            for rec in rec_for_product:
+                if rec not in recomendation.keys():
+                    recomendation[rec] = 0
+                recomendation[rec] += 1
+
+            sum = 0
+            for rec in recomendation.keys():
+                sum += recomendation[rec]
+
+            k = 100.0 / sum
+            for rec in recomendation.keys():
+                recomendation[rec] = recomendation[rec] * k
+
+            return recomendation
+
     def _divide_carts(self):
         """ Divides given products into carts
         :rtype: list
         """
         
         baskets = []
-        for id in data[1].unique():
+        for id in self.data[1].unique():
             temp = []
             for c, v in enumerate(self.data[1]):
                 if v == id:
@@ -46,7 +70,7 @@ class CartAnalyser:
                 items.add(frozenset([item]))
         return items
     
-     def _count_items(self, basket, items, min_percent):
+    def _count_items(self, basket, items, min_percent):
         """ Finds how often the exact product is bought
         :basket: list
         :items: set
@@ -71,10 +95,7 @@ class CartAnalyser:
                 products.add(item)
                 percentage[item] = item_count[item] / float(n)
                 
-        if quantity == -1:
-            return recomendations
-        else:
-            return recomendations[0:quantity-1]
+        return products, percentage
         
     def _search_items(self, baskets, product):
         """ Creates a list of baskets that include the exact product
@@ -83,7 +104,7 @@ class CartAnalyser:
         """
         
         carts = []
-        for cart in basket:
+        for cart in baskets:
             for item in cart:
                 if item == product:
                     del cart[cart.index(product)]
