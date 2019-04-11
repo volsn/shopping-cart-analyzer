@@ -1,4 +1,10 @@
 import pandas
+from flask import Flask, jsonify, request
+from flask_restful import Resource, Api
+import sys
+
+app = Flask(__name__)
+api = Api(app)
 
 
 class CartAnalyser:
@@ -11,18 +17,23 @@ class CartAnalyser:
         :product: string
         
         """
+
         baskets = self._divide_carts()
         items = self._extract_items(baskets)
-        products, percentage = self._count_items(baskets, items, min_percent=0.4)
         baskets_with_products = self._search_items(baskets, product)
-        recomendations, percentage = self._count_items(pork, items, min_percent=0.1)
+        recomendations_, percentage = self._count_items(baskets_with_products, items, min_percent=0.4)
+
+        recomendations = []
+
+        for rec in recomendations_:
+            recomendations.append(iter(rec).__next__())
 
         if quantity == -1:
-            return recomendations
+            return list(recomendations)
         else:
-            return recomendations[0:quantity - 1]
+            return list(recomendations)[0:quantity]
 
-    def recomendation_for_cart (self, cart):
+    def recomendation_for_cart(self, cart, quantity=-1):
 
         recomendation = {}
 
@@ -42,7 +53,10 @@ class CartAnalyser:
             for rec in recomendation.keys():
                 recomendation[rec] = recomendation[rec] * k
 
-            return recomendation
+            if quantity == -1:
+                return list(recomendation.keys())
+            else:
+                return list(recomendation.keys())[0:quantity]
 
     def _divide_carts(self):
         """ Divides given products into carts
@@ -111,3 +125,38 @@ class CartAnalyser:
                     carts.append(cart)
                     
         return carts
+
+
+class Index(Resource):
+
+    def post(self):
+        json = request.json
+        ca = CartAnalyser()
+
+        if json['type'] == 'single':
+            product = json['product']
+            if json['quantity'] is not None:
+                rec = ca.recomendations_for_product(product, json['quantity'])
+            else:
+                rec = ca.recomendations_for_product(product)
+        elif json['type'] == 'cart':
+            cart = ca.recomendation_for_cart(json['cart'])
+            if json['quantity'] is not None:
+                rec = ca.recomendation_for_cart(cart, json['quantity'])
+            else:
+                rec = ca.recomendation_for_cart(cart)
+
+        responce = {'recomendations': rec}
+
+        return jsonify(responce)
+
+
+    def get(self):
+        return jsonify({'message': 'API to built customers cart recomendations'})
+
+
+api.add_resource(Index, '/')
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
